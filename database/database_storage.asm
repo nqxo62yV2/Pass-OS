@@ -31,15 +31,17 @@ extern storage_read_sectors
 extern storage_write_sectors
 extern secure_zero
 
-DB_INDEX_SECTOR         equ 2
-DB_DATA_SECTOR_BASE     equ 64
-SECTORS_PER_DB          equ 256
-DB_MAGIC                db 'PWDB0001'
-DB_MAGIC_LEN            equ 8
-MAX_DATABASES           equ 32
-DB_NAME_MAX             equ 32
-INDEX_ENTRY_SIZE        equ 48
-DB_ENTRY_DISK_SIZE      equ 256
+DB_INDEX_SECTOR      equ 2
+DB_DATA_SECTOR_BASE  equ 64
+SECTORS_PER_DB       equ 256
+DB_MAGIC_LEN         equ 8
+MAX_DATABASES        equ 32
+DB_NAME_MAX          equ 32
+INDEX_ENTRY_SIZE     equ 48
+DB_ENTRY_DISK_SIZE   equ 256
+
+section .data
+    db_magic    db 'PWDB0001'
 
 section .bss
     index_sector_buf    resb 512
@@ -63,7 +65,7 @@ db_storage_load_index:
     call storage_read_sector
 
     lea rdi, [index_sector_buf]
-    lea rsi, [DB_MAGIC]
+    lea rsi, [db_magic]
     mov rdx, DB_MAGIC_LEN
     call _db_memcmp
     test rax, rax
@@ -79,7 +81,7 @@ db_storage_load_index:
     call secure_zero
 
     lea rdi, [index_sector_buf]
-    lea rsi, [DB_MAGIC]
+    lea rsi, [db_magic]
     mov rcx, DB_MAGIC_LEN
     rep movsb
 
@@ -163,35 +165,36 @@ db_storage_free_db:
     je .not_found
 
     mov rbx, rax
+
+    ; rcx = pointer to the freed slot in the index buffer
     imul rcx, rbx, INDEX_ENTRY_SIZE
     add rcx, DB_MAGIC_LEN + 4
     add rcx, index_sector_buf
 
+    ; zero the freed slot first
     lea rdi, [rcx]
     mov rsi, INDEX_ENTRY_SIZE
     call secure_zero
 
+    ; check if the freed slot is already the last entry
     mov eax, dword [db_count]
     dec eax
     cmp rbx, rax
     je .just_decrement
 
-    imul rdi, rax, INDEX_ENTRY_SIZE
-    add rdi, DB_MAGIC_LEN + 4
-    add rdi, index_sector_buf
-
-    lea rsi, [rcx]
-    mov rdx, INDEX_ENTRY_SIZE
-    push rsi
-    push rdi
-    mov rsi, rdi
-    mov rdi, rcx
+    ; copy the last entry into the freed slot
+    imul rsi, rax, INDEX_ENTRY_SIZE
+    add rsi, DB_MAGIC_LEN + 4
+    add rsi, index_sector_buf      ; rsi = last entry
+    mov rdi, rcx                   ; rdi = freed slot
     mov rcx, INDEX_ENTRY_SIZE
     rep movsb
-    pop rdi
-    pop rsi
 
-    lea rdi, [rsi]
+    ; zero the now-duplicate last entry
+    imul rdi, qword [db_count], INDEX_ENTRY_SIZE
+    sub rdi, INDEX_ENTRY_SIZE
+    add rdi, DB_MAGIC_LEN + 4
+    add rdi, index_sector_buf
     mov rsi, INDEX_ENTRY_SIZE
     call secure_zero
 
@@ -214,7 +217,7 @@ db_storage_find_db:
     push rbx
     push rcx
 
-    mov rcx, 0
+    xor rcx, rcx
     mov eax, dword [db_count]
     mov rbx, rax
 
@@ -227,10 +230,8 @@ db_storage_find_db:
     add rax, DB_MAGIC_LEN + 4
     add rax, index_sector_buf
 
-    lea rsi, [rax]
-    push rsi
+    mov rsi, rax
     call _db_strcmp_ci
-    pop rsi
     pop rcx
 
     test rax, rax

@@ -15,52 +15,54 @@ extern display_put_string
 extern display_put_char
 extern display_set_color
 extern display_clear
+extern display_put_dec
 extern keyboard_read_char
 extern keyboard_read_line
 extern storage_read_sector
 extern storage_write_sector
 extern secure_zero
 
-SETTINGS_SECTOR     equ 3
-SETTINGS_MAGIC      db 'PWCFG001'
-SETTINGS_MAGIC_LEN  equ 8
+SETTINGS_SECTOR      equ 3
+SETTINGS_MAGIC_LEN   equ 8
 
-COLOR_NORMAL        equ 0x07
-COLOR_SELECTED      equ 0x70
-COLOR_HEADER        equ 0x0F
-COLOR_WARN          equ 0x0C
+COLOR_NORMAL         equ 0x07
+COLOR_SELECTED       equ 0x70
+COLOR_HEADER         equ 0x0F
+COLOR_WARN           equ 0x0C
 
-SPECIAL_UP      equ 0x80
-SPECIAL_DOWN    equ 0x81
-SPECIAL_ESC     equ 0x84
-KEY_ENTER       equ 0x0A
+SPECIAL_UP           equ 0x80
+SPECIAL_DOWN         equ 0x81
+SPECIAL_ESC          equ 0x84
+KEY_ENTER            equ 0x0A
 
 section .bss
-    settings_sector_buf resb 512
-    setting_refresh_hz  resb 1
-    setting_kbd_layout  resb 1
+    settings_sector_buf  resb 512
+    setting_refresh_hz   resb 1
+    setting_kbd_layout   resb 1
     setting_disp_timeout resb 1
     setting_clear_on_exit resb 1
-    settings_dirty      resb 1
+    settings_dirty       resb 1
 
 section .data
-    str_settings_title  db 'PassOS Settings', 0x0A, 0x0A, 0
-    str_settings_help   db '[Up/Down] Navigate  [Enter] Change  [Esc] Save & Exit', 0x0A, 0
+    settings_magic       db 'PWCFG001'
 
-    str_refresh_label   db 'Display Refresh Rate: ', 0
-    str_kbd_label       db 'Keyboard Layout:      ', 0
-    str_timeout_label   db 'Password Timeout (s): ', 0
-    str_clear_label     db 'Clear on DB Exit:     ', 0
+    str_settings_title   db 'PassOS Settings', 0x0A, 0x0A, 0
+    str_settings_help    db '[Up/Down] Navigate  [Enter] Change  [Esc] Save & Exit', 0x0A, 0
 
-    str_60hz            db '60 Hz', 0
-    str_75hz            db '75 Hz', 0
-    str_kbd_us          db 'US', 0
-    str_kbd_de          db 'DE', 0
-    str_kbd_gb          db 'GB', 0
-    str_on              db 'ON', 0
-    str_off             db 'OFF', 0
+    str_refresh_label    db 'Display Refresh Rate: ', 0
+    str_kbd_label        db 'Keyboard Layout:      ', 0
+    str_timeout_label    db 'Password Timeout (s): ', 0
+    str_clear_label      db 'Clear on DB Exit:     ', 0
 
-    str_saved           db 0x0A, 'Settings saved.', 0x0A, 0
+    str_60hz             db '60 Hz', 0
+    str_75hz             db '75 Hz', 0
+    str_kbd_us           db 'US', 0
+    str_kbd_de           db 'DE', 0
+    str_kbd_gb           db 'GB', 0
+    str_on               db 'ON', 0
+    str_off              db 'OFF', 0
+
+    str_saved            db 0x0A, 'Settings saved.', 0x0A, 0
 
 section .text
 
@@ -72,7 +74,7 @@ settings_load:
     call storage_read_sector
 
     lea rdi, [settings_sector_buf]
-    lea rsi, [SETTINGS_MAGIC]
+    lea rsi, [settings_magic]
     mov rdx, SETTINGS_MAGIC_LEN
     call _mem_cmp
     test rax, rax
@@ -102,13 +104,16 @@ settings_load:
 
 settings_save:
     push rbx
+    push rcx
+    push rsi
+    push rdi
 
     lea rdi, [settings_sector_buf]
     mov rsi, 512
     call secure_zero
 
     lea rdi, [settings_sector_buf]
-    lea rsi, [SETTINGS_MAGIC]
+    lea rsi, [settings_magic]
     mov rcx, SETTINGS_MAGIC_LEN
     rep movsb
 
@@ -127,6 +132,9 @@ settings_save:
 
     mov byte [settings_dirty], 0
 
+    pop rdi
+    pop rsi
+    pop rcx
     pop rbx
     ret
 
@@ -226,7 +234,7 @@ _render_settings_menu:
     lea rsi, [str_timeout_label]
     call display_put_string
     movzx rdi, byte [setting_disp_timeout]
-    call display_put_dec_stub
+    call display_put_dec
     mov al, 0x0A
     call display_put_char
 
@@ -276,7 +284,3 @@ _mem_cmp:
     pop rsi
     pop rcx
     ret
-
-display_put_dec_stub:
-    extern display_put_dec
-    jmp display_put_dec

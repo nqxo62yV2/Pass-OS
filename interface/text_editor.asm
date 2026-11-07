@@ -17,6 +17,7 @@ extern display_set_cursor
 extern display_get_cursor_row
 extern display_get_cursor_col
 extern keyboard_read_char
+extern keyboard_read_line
 extern storage_read_sectors
 extern storage_write_sectors
 
@@ -396,7 +397,6 @@ _gap_move_left:
     je .done
     dec qword [editor_gap_start]
     dec qword [editor_gap_end]
-    movzx rbx, byte [editor_buffer + rbx]
     mov rbx, [editor_gap_start]
     movzx rax, byte [editor_buffer + rbx]
     mov rbx, [editor_gap_end]
@@ -487,7 +487,6 @@ _str_eq3:
     ret
 
 keyboard_read_line_stub:
-    extern keyboard_read_line
     jmp keyboard_read_line
 
 section .bss

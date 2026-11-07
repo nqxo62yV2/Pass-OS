@@ -28,7 +28,6 @@ secure_zero:
     test rsi, rsi
     jz .done
 
-    mov rdi, rdi
     mov rcx, rsi
     xor eax, eax
     rep stosb

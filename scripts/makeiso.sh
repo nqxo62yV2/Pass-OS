@@ -29,8 +29,9 @@ menuentry "PassOS V1.0" {
 }
 EOF
 
-cp "$OUT/kernel.bin" "$ISO_ROOT/boot/kernel.bin"
-cp "$OUT/boot.bin"   "$ISO_ROOT/boot/boot.bin"
+cp "$OUT/kernel.bin"  "$ISO_ROOT/boot/kernel.bin"
+cp "$OUT/boot.bin"    "$ISO_ROOT/boot/boot.bin"
+cp "$OUT/stage2.bin"  "$ISO_ROOT/boot/stage2.bin"
 
 xorriso -as mkisofs \
     -b boot/boot.bin \

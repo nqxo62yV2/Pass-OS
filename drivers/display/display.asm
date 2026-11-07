@@ -185,28 +185,32 @@ display_get_cursor_row:
 
 _update_hw_cursor:
     push rax
+    push rbx
     push rdx
 
     movzx rax, byte [cursor_row]
     imul rax, VGA_COLS
     movzx rdx, byte [cursor_col]
     add rax, rdx
+    mov rbx, rax           ; save full position
 
     mov rdx, 0x3D4
     mov al, 0x0F
     out dx, al
     mov rdx, 0x3D5
-    mov al, al
+    mov al, bl             ; low byte of position
     out dx, al
 
     mov rdx, 0x3D4
     mov al, 0x0E
     out dx, al
     mov rdx, 0x3D5
+    mov rax, rbx
     shr rax, 8
     out dx, al
 
     pop rdx
+    pop rbx
     pop rax
     ret
 

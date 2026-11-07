@@ -242,6 +242,7 @@ storage_get_sector_count:
 
 _ata_setup_lba28:
     push rax
+    push rbx
     push rdx
 
     mov rax, rsi
@@ -274,6 +275,7 @@ _ata_setup_lba28:
     out dx, al
 
     pop rdx
+    pop rbx
     pop rax
     ret
 

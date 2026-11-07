@@ -21,7 +21,7 @@ echo "[1/8] Assembling bootloader (BIOS stage 1)..."
 nasm -f bin boot/bios/boot.asm -o "$OUT/boot.bin"
 
 echo "[2/8] Assembling bootloader (BIOS stage 2)..."
-nasm -f elf64 boot/bios/stage2.asm -o "$OUT/obj/stage2.o"
+nasm -f bin boot/bios/stage2.asm -o build/stage2.bin
 
 echo "[3/8] Assembling kernel..."
 nasm -f elf64 kernel/kernel.asm      -o "$OUT/obj/kernel.o"

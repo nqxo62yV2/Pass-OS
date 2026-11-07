@@ -22,29 +22,30 @@ extern db_storage_get_db_info
 extern db_storage_read_entry
 extern db_storage_write_entry
 extern db_storage_db_count
+extern db_storage_save_index
 extern aes256gcm_encrypt
 extern aes256gcm_decrypt
 extern generate_nonce
 extern secure_zero
 extern display_put_string
 
-ENTRY_NAME_LEN      equ 64
-ENTRY_ID_LEN        equ 8
-ENTRY_PASS_LEN      equ 128
-ENTRY_KEY_LEN       equ 64
-ENTRY_TAG_LEN       equ 16
-ENTRY_IV_LEN        equ 12
-ENTRY_TOTAL_LEN     equ 256
+ENTRY_NAME_LEN    equ 64
+ENTRY_ID_LEN      equ 8
+ENTRY_PASS_LEN    equ 128
+ENTRY_KEY_LEN     equ 64
+ENTRY_TAG_LEN     equ 16
+ENTRY_IV_LEN      equ 12
+ENTRY_TOTAL_LEN   equ 256
 
-ENTRY_FLAG_ACTIVE   equ 0x01
+ENTRY_FLAG_ACTIVE equ 0x01
 
 section .bss
-    current_db_id       resq 1
-    db_open_flag        resb 1
-    current_db_name     resb 64
-    entry_count         resq 1
-    entry_buf           resb ENTRY_TOTAL_LEN
-    master_key_ptr      resq 1
+    current_db_id     resq 1
+    db_open_flag      resb 1
+    current_db_name   resb 64
+    entry_count       resq 1
+    entry_buf         resb ENTRY_TOTAL_LEN
+    master_key_ptr    resq 1
 
 section .data
     str_db_not_open     db 'No database is open.', 0x0A, 0
@@ -74,10 +75,11 @@ database_open:
     mov qword [current_db_id], rax
     mov byte [db_open_flag], 1
 
+    ; load entry count from index info
     mov rbx, rax
     call db_storage_get_db_info
-    mov rcx, rax
-    mov qword [entry_count], [rcx + 40]
+    mov rbx, [rax + 40]
+    mov qword [entry_count], rbx
 
     lea rdi, [current_db_name]
     mov rsi, r12
@@ -265,7 +267,8 @@ _update_entry_count:
     inc qword [entry_count]
     mov rdi, [current_db_id]
     call db_storage_get_db_info
-    mov qword [rax + 40], [entry_count]
+    mov rbx, [entry_count]
+    mov qword [rax + 40], rbx
     call db_storage_save_index
     pop rbx
     ret
@@ -287,5 +290,3 @@ _db_strcopy:
     pop rsi
     pop rcx
     ret
-
-extern db_storage_save_index

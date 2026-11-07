@@ -34,13 +34,15 @@ COLOR_WARN      equ 0x0C
 COLOR_OK        equ 0x0A
 COLOR_BOLD      equ 0x0F
 
-UPDATE_PKG_MAGIC    db 'PASSUPD1'
 UPDATE_MAGIC_LEN    equ 8
 UPDATE_SIG_LEN      equ 64
 UPDATE_HEADER_SIZE  equ UPDATE_MAGIC_LEN + 4 + UPDATE_SIG_LEN
 
 TOKEN_BUF_LEN       equ 256
 INPUT_BUF_LEN       equ 8
+
+section .data
+    update_pkg_magic    db 'PASSUPD1'
 
 section .bss
     update_header_buf   resb 512

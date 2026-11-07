@@ -140,4 +140,4 @@ gdt64_end:
 
 gdt64_descriptor:
     dw gdt64_end - gdt64_start - 1
-    dq gdt64_start
+    dd gdt64_start

@@ -28,7 +28,7 @@ jobs:
         run: nasm -f bin boot/bios/boot.asm -o build/boot.bin
 
       - name: Assemble bootloader (BIOS Stage 2)
-        run: nasm -f elf64 boot/bios/stage2.asm -o build/obj/stage2.o
+        run: nasm -f bin boot/bios/stage2.asm -o build/stage2.bin
 
       - name: Assemble kernel
         run: |
@@ -116,6 +116,7 @@ jobs:
         run: |
           cp build/kernel.bin build/isoroot/boot/kernel.bin
           cp build/boot.bin   build/isoroot/boot/boot.bin
+          cp build/stage2.bin build/isoroot/boot/stage2.bin
           cat > build/isoroot/boot/grub/grub.cfg << 'EOF'
           set timeout=3
           set default=0

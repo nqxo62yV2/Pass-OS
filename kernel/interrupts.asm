@@ -8,6 +8,8 @@ global idt_load
 global irq_enable
 global irq_disable
 
+extern keyboard_scancode_handler
+
 IDT_ENTRIES     equ 256
 PIC1_CMD        equ 0x20
 PIC1_DATA       equ 0x21
@@ -126,8 +128,6 @@ keyboard_handler_stub:
     pop rbx
     pop rax
     iretq
-
-extern keyboard_scancode_handler
 
 irq_enable:
     sti

@@ -23,6 +23,10 @@ extern table_enter_database
 extern authentication_verify_token
 extern secure_zero
 extern system_reboot
+extern db_storage_db_count
+extern db_storage_free_db
+extern db_storage_get_db_info
+extern storage_write_sector
 
 COLOR_NORMAL    equ 0x07
 COLOR_HEADER    equ 0x0F
@@ -108,6 +112,7 @@ section .data
     str_purge_auth_fail db 'Authentication failed. Purge aborted.', 0x0A, 0
 
     str_exit_msg        db 0x0A, 'PassOS shutting down safely. Goodbye.', 0x0A, 0
+    str_db_not_found    db 'Error: Database not found.', 0x0A, 0
 
     confirm_str         db 'CONFIRM', 0
 
@@ -254,12 +259,6 @@ _purge_all_databases:
     push rbx
     push rcx
 
-    extern db_storage_db_count
-    extern db_storage_free_db
-    extern db_storage_get_db_info
-    extern secure_zero
-    extern storage_write_sector
-
     call db_storage_db_count
     mov rcx, rax
 
@@ -268,14 +267,13 @@ _purge_all_databases:
     jz .done
 
     push rcx
-    mov rdi, 0
-    call db_storage_get_db_info
-    push rax
     call db_storage_db_count
     dec rax
     mov rdi, rax
+    call db_storage_get_db_info
+    ; rax = pointer to index entry; get db name for free_db
+    mov rdi, rax           ; pass index entry pointer (free_db takes index id)
     call db_storage_free_db
-    pop rax
     pop rcx
     dec rcx
     jmp .purge_loop
@@ -328,5 +326,3 @@ _str_eq7:
     pop rcx
     pop rbx
     ret
-
-str_db_not_found    db 'Error: Database not found.', 0x0A, 0
