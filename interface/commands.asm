@@ -422,12 +422,12 @@ cmd_status:
 
     lea rsi, [str_stat_sec_pre]
     call display_put_string
-    movzx rdi, dword [r14 + 32]
+    mov edi, dword [r14 + 32]
     call display_put_dec
     mov al, '-'
     call display_put_char
-    movzx rdi, dword [r14 + 32]
-    movzx rax, dword [r14 + 36]
+    mov edi, dword [r14 + 32]
+    mov eax, dword [r14 + 36]
     add rdi, rax
     dec rdi
     call display_put_dec

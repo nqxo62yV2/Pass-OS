@@ -191,7 +191,7 @@ db_storage_free_db:
     rep movsb
 
     ; zero the now-duplicate last entry
-    movzx rdi, dword [db_count]
+    mov edi, dword [db_count]
     imul rdi, rdi, INDEX_ENTRY_SIZE
     sub rdi, INDEX_ENTRY_SIZE
     add rdi, DB_MAGIC_LEN + 4
