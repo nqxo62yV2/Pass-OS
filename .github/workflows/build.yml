@@ -162,13 +162,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install ARM64 cross-toolchain
+      - name: Install build tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y binutils-aarch64-linux-gnu
-
-      - name: Install NASM
-        run: sudo apt-get install -y nasm
+          sudo apt-get install -y nasm binutils-aarch64-linux-gnu
 
       - name: Create build directories
         run: mkdir -p build/arm/obj
@@ -214,7 +211,7 @@ jobs:
             installer/installer.asm
           do
             base=$(basename "$src" .asm)
-            aarch64-linux-gnu-as -o "build/arm/obj/${base}.o" "$src"
+            nasm -f elf64 "$src" -o "build/arm/obj/${base}.o"
           done
 
       - name: Link ARM64 kernel
@@ -222,7 +219,37 @@ jobs:
           aarch64-linux-gnu-ld \
             -T scripts/linker_arm.ld \
             -o build/arm/kernel_arm.elf \
-            build/arm/obj/*.o
+            build/arm/obj/boot_arm.o \
+            build/arm/obj/kernel.o \
+            build/arm/obj/memory.o \
+            build/arm/obj/interrupts.o \
+            build/arm/obj/scheduler.o \
+            build/arm/obj/system.o \
+            build/arm/obj/display.o \
+            build/arm/obj/keyboard.o \
+            build/arm/obj/storage.o \
+            build/arm/obj/usb.o \
+            build/arm/obj/hardware.o \
+            build/arm/obj/key_derivation.o \
+            build/arm/obj/encryption.o \
+            build/arm/obj/secure_memory.o \
+            build/arm/obj/authentication.o \
+            build/arm/obj/integrity.o \
+            build/arm/obj/database_storage.o \
+            build/arm/obj/database.o \
+            build/arm/obj/database_create.o \
+            build/arm/obj/database_delete.o \
+            build/arm/obj/database_search.o \
+            build/arm/obj/database_export.o \
+            build/arm/obj/terminal.o \
+            build/arm/obj/command_parser.o \
+            build/arm/obj/table.o \
+            build/arm/obj/navigation.o \
+            build/arm/obj/text_editor.o \
+            build/arm/obj/commands.o \
+            build/arm/obj/settings.o \
+            build/arm/obj/update.o \
+            build/arm/obj/installer.o
 
       - name: Extract ARM64 flat binary
         run: |
