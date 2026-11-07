@@ -51,8 +51,8 @@ EOF
 # GRUB reads the ELF program headers and loads the image at its link address.
 cp "$OUT/kernel.elf" "$ISO_ROOT/boot/kernel.elf"
 
-# Build a hybrid BIOS/UEFI ISO. Extra arguments after -- go to xorriso.
-grub-mkrescue -o "$ISO" "$ISO_ROOT" -- -iso-level 3 -r -J
+# Build a hybrid BIOS/UEFI ISO with grub-mkrescue's defaults.
+grub-mkrescue -o "$ISO" "$ISO_ROOT"
 
 echo ""
 echo "ISO created: $ISO"
