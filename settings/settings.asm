@@ -21,6 +21,7 @@ extern keyboard_read_line
 extern storage_read_sector
 extern storage_write_sector
 extern secure_zero
+extern keyboard_set_layout
 
 SETTINGS_SECTOR      equ 3
 SETTINGS_MAGIC_LEN   equ 8
@@ -84,6 +85,8 @@ settings_load:
     mov byte [setting_refresh_hz], al
     mov al, byte [settings_sector_buf + SETTINGS_MAGIC_LEN + 1]
     mov byte [setting_kbd_layout], al
+    movzx rdi, al
+    call keyboard_set_layout
     mov al, byte [settings_sector_buf + SETTINGS_MAGIC_LEN + 2]
     mov byte [setting_disp_timeout], al
     mov al, byte [settings_sector_buf + SETTINGS_MAGIC_LEN + 3]
@@ -92,7 +95,9 @@ settings_load:
 
 .defaults:
     mov byte [setting_refresh_hz], 60
-    mov byte [setting_kbd_layout], 0
+    mov byte [setting_kbd_layout], 1
+    mov rdi, 1
+    call keyboard_set_layout
     mov byte [setting_disp_timeout], 30
     mov byte [setting_clear_on_exit], 1
     call settings_save

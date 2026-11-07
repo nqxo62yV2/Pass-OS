@@ -34,9 +34,13 @@ ATA_STATUS_ERR      equ 0x01
 
 SECTOR_SIZE         equ 512
 
+RAM_SECTOR_COUNT    equ 2048
+
 section .bss
     sector_count    resq 1
     identify_buf    resb SECTOR_SIZE
+    ram_storage     resb RAM_SECTOR_COUNT * SECTOR_SIZE
+    ram_valid       resb RAM_SECTOR_COUNT
 
 section .text
 
@@ -111,6 +115,35 @@ storage_read_sector:
     push rcx
     push rdx
     push rdi
+    push rsi
+
+    ; Check if sector is in RAM cache
+    cmp rsi, RAM_SECTOR_COUNT
+    jae .read_hw
+
+    cmp byte [ram_valid + rsi], 1
+    jne .read_hw
+
+    ; Cached! Copy 512 bytes from ram_storage + rsi*512 to rdi
+    lea rax, [ram_storage]
+    imul rdx, rsi, SECTOR_SIZE
+    add rax, rdx
+    push rsi
+    mov rsi, rax
+    mov rcx, 256
+    rep movsw
+    pop rsi
+
+    xor rax, rax
+    pop rsi
+    pop rdi
+    pop rdx
+    pop rcx
+    ret
+
+.read_hw:
+    pop rsi
+    push rsi
 
     call _ata_setup_lba28
 
@@ -119,24 +152,50 @@ storage_read_sector:
     out dx, al
 
     call _ata_wait_drq
-    jc .error
+    jc .read_fail
 
     mov rcx, 256
     mov dx, ATA_DATA
+    push rdi
 .loop:
     in ax, dx
     mov [rdi], ax
     add rdi, 2
     loop .loop
+    pop rdi
 
+    ; Store successfully read sector into RAM cache
+    cmp rsi, RAM_SECTOR_COUNT
+    jae .read_ok
+    lea rax, [ram_storage]
+    imul rdx, rsi, SECTOR_SIZE
+    add rax, rdx
+    push rdi
+    push rsi
+    mov rsi, rdi
+    mov rdi, rax
+    mov rcx, 256
+    rep movsw
+    pop rsi
+    pop rdi
+    mov byte [ram_valid + rsi], 1
+
+.read_ok:
     xor rax, rax
+    pop rsi
     pop rdi
     pop rdx
     pop rcx
     ret
 
-.error:
+.read_fail:
+    push rdi
+    mov rcx, 256
+    xor ax, ax
+    rep stosw
+    pop rdi
     mov rax, 1
+    pop rsi
     pop rdi
     pop rdx
     pop rcx
@@ -146,7 +205,26 @@ storage_write_sector:
     push rcx
     push rdx
     push rsi
+    push rdi
 
+    ; 1. Always cache written sector in RAM
+    cmp rdi, RAM_SECTOR_COUNT
+    jae .skip_cache_write
+
+    lea rax, [ram_storage]
+    imul rdx, rdi, SECTOR_SIZE
+    add rax, rdx
+    push rsi
+    push rdi
+    mov rdi, rax
+    mov rcx, 256
+    rep movsw
+    pop rdi
+    pop rsi
+    mov byte [ram_valid + rdi], 1
+
+.skip_cache_write:
+    ; 2. Also write to physical ATA disk
     call _ata_setup_lba28_write
 
     mov dx, ATA_CMD
@@ -154,29 +232,26 @@ storage_write_sector:
     out dx, al
 
     call _ata_wait_drq
-    jc .error
+    jc .write_done_ok
 
     mov rcx, 256
     mov dx, ATA_DATA
-.loop:
+    push rsi
+.write_loop:
     mov ax, [rsi]
     out dx, ax
     add rsi, 2
-    loop .loop
+    loop .write_loop
+    pop rsi
 
     mov dx, ATA_CMD
     mov al, ATA_CMD_FLUSH
     out dx, al
     call _ata_wait_ready
 
+.write_done_ok:
     xor rax, rax
-    pop rsi
-    pop rdx
-    pop rcx
-    ret
-
-.error:
-    mov rax, 1
+    pop rdi
     pop rsi
     pop rdx
     pop rcx

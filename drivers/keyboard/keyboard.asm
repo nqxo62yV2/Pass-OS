@@ -11,6 +11,7 @@ global keyboard_read_char
 global keyboard_read_line
 global keyboard_read_line_masked
 global keyboard_peek
+global keyboard_set_layout
 
 KBD_STATUS_PORT     equ 0x64
 KBD_DATA_PORT       equ 0x60
@@ -41,11 +42,12 @@ EXTENDED_PREFIX     equ 0xE0
 KEY_RELEASE_FLAG    equ 0x80
 
 section .bss
-    kbd_buffer      resb BUFFER_SIZE
-    buf_head        resb 1
-    buf_tail        resb 1
-    modifier_flags  resb 1
-    layout_ptr      resq 1
+    kbd_buffer          resb BUFFER_SIZE
+    buf_head            resb 1
+    buf_tail            resb 1
+    modifier_flags      resb 1
+    layout_normal_ptr   resq 1
+    layout_shift_ptr    resq 1
 
 section .data
     us_layout_normal:
@@ -66,6 +68,26 @@ section .data
         db '7','8','9','-','4','5','6','+','1','2','3','0','.'
         times 256-89 db 0
 
+    de_layout_normal:
+        db 0,0x1B,'1','2','3','4','5','6','7','8','9','0',0xE1,'`',0x08
+        db 0x09,'q','w','e','r','t','z','u','i','o','p',0x81,'+',0x0A
+        db 0,'a','s','d','f','g','h','j','k','l',0x94,0x84,'^'
+        db 0,'#','y','x','c','v','b','n','m',',','.','-',0,'*'
+        db 0,' ',0,0,0,0,0,0,0,0,0,0,0,0,0
+        db '7','8','9','-','4','5','6','+','1','2','3','0',','
+        db '<'
+        times 256-90 db 0
+
+    de_layout_shifted:
+        db 0,0x1B,'!','"',0xF5,'$','%','&','/','(',')','=','?','`',0x08
+        db 0x09,'Q','W','E','R','T','Z','U','I','O','P',0x9A,'*',0x0A
+        db 0,'A','S','D','F','G','H','J','K','L',0x99,0x8E,0xF8
+        db 0,'\'','Y','X','C','V','B','N','M',';',':','_',0,'*'
+        db 0,' ',0,0,0,0,0,0,0,0,0,0,0,0,0
+        db '7','8','9','-','4','5','6','+','1','2','3','0',','
+        db '>'
+        times 256-90 db 0
+
     SPECIAL_KEY_UP      equ 0x80
     SPECIAL_KEY_DOWN    equ 0x81
     SPECIAL_KEY_LEFT    equ 0x82
@@ -80,8 +102,30 @@ keyboard_init:
     mov byte [buf_head], 0
     mov byte [buf_tail], 0
     mov byte [modifier_flags], 0
+    ; Default to German (DE) layout
+    lea rax, [de_layout_normal]
+    mov [layout_normal_ptr], rax
+    lea rax, [de_layout_shifted]
+    mov [layout_shift_ptr], rax
+    ret
+
+keyboard_set_layout:
+    push rbx
+    cmp rdi, 0
+    je .set_us
+    ; 1 = DE or default
+    lea rax, [de_layout_normal]
+    mov [layout_normal_ptr], rax
+    lea rax, [de_layout_shifted]
+    mov [layout_shift_ptr], rax
+    jmp .done
+.set_us:
     lea rax, [us_layout_normal]
-    mov [layout_ptr], rax
+    mov [layout_normal_ptr], rax
+    lea rax, [us_layout_shifted]
+    mov [layout_shift_ptr], rax
+.done:
+    pop rbx
     ret
 
 keyboard_scancode_handler:
@@ -218,13 +262,22 @@ scancode_to_char:
     test rax, FLAG_CAPS
     jz .normal_lookup
 
+    mov rdx, [layout_normal_ptr]
+    movzx rax, byte [rdx + rbx]
+    cmp al, 'a'
+    jl .done
+    cmp al, 'z'
+    jg .done
+    sub al, 32
+    jmp .done
+
 .shifted:
-    lea rdx, [us_layout_shifted]
+    mov rdx, [layout_shift_ptr]
     movzx rax, byte [rdx + rbx]
     jmp .done
 
 .normal_lookup:
-    mov rdx, [layout_ptr]
+    mov rdx, [layout_normal_ptr]
     movzx rax, byte [rdx + rbx]
     jmp .done
 
@@ -322,7 +375,10 @@ keyboard_read_line:
     cmp al, SPECIAL_KEY_DELETE
     je .backspace
     cmp al, 0x80
-    jae .loop              ; ignore other special keys (arrows, Esc, Tab)
+    jb .char_valid
+    cmp al, 0x86
+    jbe .loop              ; ignore navigation keys (arrows, Esc, Tab, Delete)
+.char_valid:
 
     cmp rcx, rdx
     jge .loop
@@ -383,7 +439,10 @@ keyboard_read_line_masked:
     cmp al, SPECIAL_KEY_DELETE
     je .backspace
     cmp al, 0x80
-    jae .loop              ; ignore other special keys (arrows, Esc, Tab)
+    jb .char_valid
+    cmp al, 0x86
+    jbe .loop              ; ignore navigation keys (arrows, Esc, Tab, Delete)
+.char_valid:
 
     cmp rcx, rdx
     jge .loop
