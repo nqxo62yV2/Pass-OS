@@ -475,19 +475,12 @@ splash_screen_display:
     call display_put_string_at
 
 %ifndef DEBUG_SERIAL
-    ; Wait for Enter, but continue on a timeout if nobody is there.
-    mov ecx, 0x40000000
+    ; Wait until Enter is pressed. Other keys are consumed and ignored.
 .wait:
-    push rcx
     call keyboard_peek
-    pop rcx
     test rax, rax
-    jnz .key
-    dec ecx
-    jnz .wait
-    jmp .done
-.key:
-    call keyboard_read_char       ; consume the key
+    jz .wait
+    call keyboard_read_char
     cmp al, 0x0A
     je .done
     cmp al, 0x0D

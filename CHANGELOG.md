@@ -10,7 +10,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Boot splash screen with ASCII "PASSOS" logo, version and progress bar.
-  It advances with Enter, falls back to a timeout, and is skipped in
+  It waits for Enter to continue; other keys are ignored. It is skipped in
   `DEBUG_SERIAL` CI builds so automated boot tests do not block.
 - Prebuilt, VirtualBox-verified ISO at `artifacts/passos.iso`.
 - `CHANGELOG.md`.
