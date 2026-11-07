@@ -357,7 +357,8 @@ _cursor_move_right:
 
 _insert_char:
     push rbx
-    cmp qword [editor_gap_start], [editor_gap_end]
+    mov rbx, [editor_gap_start]
+    cmp rbx, [editor_gap_end]
     je .no_space
     mov rbx, [editor_gap_start]
     mov byte [editor_buffer + rbx], dil
