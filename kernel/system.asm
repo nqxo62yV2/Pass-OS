@@ -12,6 +12,7 @@ extern storage_init
 extern usb_init
 extern display_init
 extern keyboard_init
+extern database_init
 
 section .data
     system_tick_count   dq 0
@@ -25,6 +26,7 @@ system_init:
     call display_init
     call keyboard_init
     call storage_init
+    call database_init
     call usb_init
 
     mov byte [system_initialized], 1

@@ -191,7 +191,8 @@ db_storage_free_db:
     rep movsb
 
     ; zero the now-duplicate last entry
-    imul rdi, qword [db_count], INDEX_ENTRY_SIZE
+    movzx rdi, dword [db_count]
+    imul rdi, rdi, INDEX_ENTRY_SIZE
     sub rdi, INDEX_ENTRY_SIZE
     add rdi, DB_MAGIC_LEN + 4
     add rdi, index_sector_buf
@@ -216,7 +217,9 @@ db_storage_free_db:
 db_storage_find_db:
     push rbx
     push rcx
+    push r12
 
+    mov r12, rdi
     xor rcx, rcx
     mov eax, dword [db_count]
     mov rbx, rax
@@ -230,6 +233,7 @@ db_storage_find_db:
     add rax, DB_MAGIC_LEN + 4
     add rax, index_sector_buf
 
+    mov rdi, r12
     mov rsi, rax
     call _db_strcmp_ci
     pop rcx
@@ -248,6 +252,7 @@ db_storage_find_db:
     mov rax, -1
 
 .done:
+    pop r12
     pop rcx
     pop rbx
     ret
@@ -388,6 +393,8 @@ _db_strcopy:
 _db_strcmp_ci:
     push rbx
     push rcx
+    push rsi
+    push rdi
 .loop:
     movzx rax, byte [rdi]
     movzx rbx, byte [rsi]
@@ -420,6 +427,8 @@ _db_strcmp_ci:
 .not_equal:
     mov rax, 1
 .done:
+    pop rdi
+    pop rsi
     pop rcx
     pop rbx
     ret

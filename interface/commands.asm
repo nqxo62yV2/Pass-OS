@@ -9,9 +9,11 @@ global cmd_changelogs
 global cmd_purge
 global cmd_clear
 global cmd_exit
+global cmd_status
 
 extern display_put_string
 extern display_put_char
+extern display_put_dec
 extern display_set_color
 extern display_clear
 extern keyboard_read_line
@@ -19,6 +21,9 @@ extern keyboard_read_line_masked
 extern database_init
 extern database_open
 extern database_close
+extern database_is_open
+extern database_get_current_name
+extern database_get_entry_count
 extern table_enter_database
 extern authentication_verify_token
 extern secure_zero
@@ -27,6 +32,7 @@ extern db_storage_db_count
 extern db_storage_free_db
 extern db_storage_get_db_info
 extern storage_write_sector
+extern storage_get_sector_count
 
 COLOR_NORMAL    equ 0x07
 COLOR_HEADER    equ 0x0F
@@ -71,6 +77,8 @@ section .data
         db '  Permanently destroy ALL databases (requires master token).', 0x0A, 0x0A
         db '/update', 0x0A
         db '  Install a PassOS update from USB.', 0x0A, 0x0A
+        db '/status', 0x0A
+        db '  Show system and database statistics.', 0x0A, 0x0A
         db '/install', 0x0A
         db '  Install PassOS to a drive.', 0x0A, 0x0A
         db '/exit', 0x0A
@@ -115,6 +123,26 @@ section .data
     str_db_not_found    db 'Error: Database not found.', 0x0A, 0
 
     confirm_str         db 'CONFIRM', 0
+
+    str_status_hdr          db 'PassOS System & Database Status', 0x0A
+                            db '================================', 0x0A, 0
+    str_stat_ver            db 'OS Version:       PassOS V1.0 (x86-64)', 0x0A, 0
+    str_stat_storage        db 'Storage Capacity: ', 0
+    str_stat_sectors        db ' sectors (ATA Primary)', 0x0A, 0
+    str_stat_active         db 'Active Database:  ', 0
+    str_stat_open_bracket   db ' (', 0
+    str_stat_entries_close  db ' entries)', 0x0A, 0
+    str_stat_none           db 'None (use /enter_database("NAME"))', 0x0A, 0
+    str_stat_total_dbs      db 'Total Databases:  ', 0
+    str_stat_of_32          db ' / 32 max', 0x0A, 0
+    str_stat_list_hdr       db 0x0A, 'Databases:', 0x0A, 0
+    str_stat_item_pre       db '  [', 0
+    str_stat_item_mid       db '] ', 0
+    str_stat_dash           db ' - ', 0
+    str_stat_entries        db ' entries', 0
+    str_stat_sec_pre        db ' (Sectors ', 0
+    str_stat_sec_post       db ')', 0x0A, 0
+    str_stat_no_dbs         db '  No databases created yet. Type /create_database("NAME") to create one.', 0x0A, 0
 
 section .text
 
@@ -285,6 +313,148 @@ _purge_all_databases:
 
 cmd_clear:
     call display_clear
+    ret
+
+cmd_status:
+    push rbx
+    push r12
+    push r13
+    push r14
+
+    mov dil, COLOR_HEADER
+    call display_set_color
+    lea rsi, [str_status_hdr]
+    call display_put_string
+    mov dil, COLOR_NORMAL
+    call display_set_color
+
+    lea rsi, [str_stat_ver]
+    call display_put_string
+
+    lea rsi, [str_stat_storage]
+    call display_put_string
+    call storage_get_sector_count
+    mov rdi, rax
+    call display_put_dec
+    lea rsi, [str_stat_sectors]
+    call display_put_string
+
+    lea rsi, [str_stat_active]
+    call display_put_string
+    call database_is_open
+    test rax, rax
+    jz .no_active_db
+
+    mov dil, COLOR_OK
+    call display_set_color
+    call database_get_current_name
+    mov rsi, rax
+    call display_put_string
+    mov dil, COLOR_NORMAL
+    call display_set_color
+
+    lea rsi, [str_stat_open_bracket]
+    call display_put_string
+    call database_get_entry_count
+    mov rdi, rax
+    call display_put_dec
+    lea rsi, [str_stat_entries_close]
+    call display_put_string
+    jmp .db_stats
+
+.no_active_db:
+    lea rsi, [str_stat_none]
+    call display_put_string
+
+.db_stats:
+    mov al, 0x0A
+    call display_put_char
+
+    lea rsi, [str_stat_total_dbs]
+    call display_put_string
+    call db_storage_db_count
+    mov r12, rax
+    mov rdi, r12
+    call display_put_dec
+    lea rsi, [str_stat_of_32]
+    call display_put_string
+
+    test r12, r12
+    jz .no_dbs_created
+
+    mov dil, COLOR_CMD
+    call display_set_color
+    lea rsi, [str_stat_list_hdr]
+    call display_put_string
+    mov dil, COLOR_NORMAL
+    call display_set_color
+
+    xor r13, r13
+.list_loop:
+    cmp r13, r12
+    jge .status_done
+
+    lea rsi, [str_stat_item_pre]
+    call display_put_string
+    mov rdi, r13
+    inc rdi
+    call display_put_dec
+    lea rsi, [str_stat_item_mid]
+    call display_put_string
+
+    mov rdi, r13
+    call db_storage_get_db_info
+    mov r14, rax
+
+    mov dil, COLOR_HEADER
+    call display_set_color
+    mov rsi, r14
+    call display_put_string
+    mov dil, COLOR_NORMAL
+    call display_set_color
+
+    lea rsi, [str_stat_dash]
+    call display_put_string
+    mov rdi, [r14 + 40]
+    call display_put_dec
+    lea rsi, [str_stat_entries]
+    call display_put_string
+
+    lea rsi, [str_stat_sec_pre]
+    call display_put_string
+    movzx rdi, dword [r14 + 32]
+    call display_put_dec
+    mov al, '-'
+    call display_put_char
+    movzx rdi, dword [r14 + 32]
+    movzx rax, dword [r14 + 36]
+    add rdi, rax
+    dec rdi
+    call display_put_dec
+    lea rsi, [str_stat_sec_post]
+    call display_put_string
+
+    inc r13
+    jmp .list_loop
+
+.no_dbs_created:
+    lea rsi, [str_stat_no_dbs]
+    call display_put_string
+
+.status_done:
+    mov al, 0x0A
+    call display_put_char
+    mov dil, COLOR_HEADER
+    call display_set_color
+    lea rsi, [str_help_footer]
+    call display_put_string
+    mov dil, COLOR_NORMAL
+    call display_set_color
+
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
     ret
 
 cmd_exit:

@@ -17,6 +17,7 @@ extern keyboard_read_line_masked
 extern storage_read_sector
 extern storage_write_sector
 extern storage_write_sectors
+extern storage_get_sector_count
 extern usb_device_count
 extern authentication_verify_token
 extern secure_zero
@@ -56,6 +57,9 @@ section .data
     str_drive_1         db 'Drive 1 (Secondary ATA)', 0
     str_drive_usb       db 'USB Drive', 0
 
+    db_install_magic    db 'PWDB0001'
+    cfg_install_magic   db 'PWCFG001'
+
 section .text
 
 cmd_install:
@@ -77,6 +81,7 @@ cmd_install:
     test rax, rax
     jz .no_drives
 
+    mov rdx, rax
     mov rdi, drive_labels
     xor rsi, rsi
     call nav_select_from_list
@@ -179,20 +184,38 @@ _build_drive_list:
 
     xor rcx, rcx
 
+    call storage_get_sector_count
+    test rax, rax
+    jz .check_usb
+
+    lea rax, [str_drive_0]
+    mov qword [drive_labels + rcx*8], rax
+    inc rcx
+
+.check_usb:
+    movzx rax, byte [usb_device_count]
+    test rax, rax
+    jz .check_fallback
+
+    lea rax, [str_drive_usb]
+    mov qword [drive_labels + rcx*8], rax
+    inc rcx
+
+.check_fallback:
+    test rcx, rcx
+    jnz .zero_remaining
     lea rax, [str_drive_0]
     mov qword [drive_labels], rax
     inc rcx
 
-    lea rax, [str_drive_1]
-    mov qword [drive_labels + 8], rax
-    inc rcx
-
-    movzx rax, byte [usb_device_count]
-    test rax, rax
-    jz .done
-    lea rax, [str_drive_usb]
-    mov qword [drive_labels + 16], rax
-    inc rcx
+.zero_remaining:
+    mov rax, rcx
+.zero_loop:
+    cmp rax, 8
+    jge .done
+    mov qword [drive_labels + rax*8], 0
+    inc rax
+    jmp .zero_loop
 
 .done:
     mov rax, rcx
@@ -201,6 +224,51 @@ _build_drive_list:
     ret
 
 _perform_installation:
+    push rbx
+    push rcx
+    push rsi
+    push rdi
+
+    sub rsp, 512
+    mov rdi, rsp
+    mov rsi, 512
+    call secure_zero
+
+    mov rdi, rsp
+    lea rsi, [db_install_magic]
+    mov rcx, 8
+    rep movsb
+
+    mov dword [rsp + 8], 0
+
+    mov rsi, rsp
+    mov rdi, 2
+    call storage_write_sector
+
+    mov rdi, rsp
+    mov rsi, 512
+    call secure_zero
+
+    mov rdi, rsp
+    lea rsi, [cfg_install_magic]
+    mov rcx, 8
+    rep movsb
+
+    mov byte [rsp + 8], 60
+    mov byte [rsp + 9], 0
+    mov byte [rsp + 10], 30
+    mov byte [rsp + 11], 1
+
+    mov rsi, rsp
+    mov rdi, 3
+    call storage_write_sector
+
+    add rsp, 512
+
+    pop rdi
+    pop rsi
+    pop rcx
+    pop rbx
     ret
 
 _str_eq_yes:

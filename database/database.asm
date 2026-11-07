@@ -170,7 +170,14 @@ database_add_entry:
     call _db_strcopy
 
     lea rdi, [entry_buf + 1 + ENTRY_NAME_LEN]
-    mov rsi, rax
+    call _format_id
+
+    lea rdi, [entry_buf + 1 + ENTRY_NAME_LEN + ENTRY_ID_LEN]
+    mov rsi, r13
+    call _db_strcopy
+
+    lea rdi, [entry_buf + 201]
+    mov rsi, r14
     call _db_strcopy
 
     call _encrypt_password_field
@@ -198,17 +205,60 @@ database_add_entry:
 
 database_delete_entry:
     push rbx
+    push r12
+    push r13
+    push r14
 
-    mov rbx, rdi
-    lea rdi, [entry_buf]
-    mov rsi, ENTRY_TOTAL_LEN
-    call secure_zero
+    mov r12, rdi
+    mov r13, [entry_count]
+    test r13, r13
+    jz .del_done
+    cmp r12, r13
+    jge .del_done
+
+    mov rbx, r12
+.shift_loop:
+    mov rax, rbx
+    inc rax
+    cmp rax, r13
+    jge .shift_end
+
+    mov rdi, [current_db_id]
+    mov rsi, rax
+    lea rdx, [entry_buf]
+    call db_storage_read_entry
 
     mov rdi, [current_db_id]
     mov rsi, rbx
     lea rdx, [entry_buf]
     call db_storage_write_entry
 
+    inc rbx
+    jmp .shift_loop
+
+.shift_end:
+    lea rdi, [entry_buf]
+    mov rsi, ENTRY_TOTAL_LEN
+    call secure_zero
+
+    mov rdi, [current_db_id]
+    mov rax, r13
+    dec rax
+    mov rsi, rax
+    lea rdx, [entry_buf]
+    call db_storage_write_entry
+
+    dec qword [entry_count]
+    mov rdi, [current_db_id]
+    call db_storage_get_db_info
+    mov rbx, [entry_count]
+    mov qword [rax + 40], rbx
+    call db_storage_save_index
+
+.del_done:
+    pop r14
+    pop r13
+    pop r12
     pop rbx
     ret
 
@@ -245,6 +295,39 @@ database_generate_id:
     push rbx
     mov rax, rdi
     inc rax
+    pop rbx
+    ret
+
+_format_id:
+    push rbx
+    push rcx
+    push rdx
+    push rdi
+
+    mov byte [rdi], '#'
+    inc rdi
+    mov rcx, 10
+    push 0
+.digit_loop:
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    push rdx
+    test rax, rax
+    jnz .digit_loop
+
+.pop_loop:
+    pop rax
+    mov byte [rdi], al
+    test al, al
+    jz .id_done
+    inc rdi
+    jmp .pop_loop
+
+.id_done:
+    pop rdi
+    pop rdx
+    pop rcx
     pop rbx
     ret
 

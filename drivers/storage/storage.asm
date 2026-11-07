@@ -280,7 +280,43 @@ _ata_setup_lba28:
     ret
 
 _ata_setup_lba28_write:
-    jmp _ata_setup_lba28
+    push rax
+    push rbx
+    push rdx
+
+    mov rax, rdi
+    mov rdx, ATA_DRIVE
+    mov al, 0xE0
+    or al, 0x40
+    push rax
+    mov rax, rdi
+    shr rax, 24
+    and al, 0x0F
+    pop rbx
+    or al, bl
+    out dx, al
+
+    mov rax, rdi
+    mov dx, ATA_SECTOR_COUNT
+    mov al, 1
+    out dx, al
+
+    mov dx, ATA_LBA_LOW
+    mov rax, rdi
+    out dx, al
+
+    mov dx, ATA_LBA_MID
+    shr rax, 8
+    out dx, al
+
+    mov dx, ATA_LBA_HIGH
+    shr rax, 8
+    out dx, al
+
+    pop rdx
+    pop rbx
+    pop rax
+    ret
 
 _ata_wait_ready:
     push rax

@@ -78,9 +78,9 @@ section .data
     str_table_hdr_sep   db '+----------------+----------+----------------------+----------------+', 0
     str_table_hdr_row   db '| Name           | ID       | Password             | Encryption Key |', 0
     str_table_title     db 0x0A, 'Database Contents:', 0x0A, 0
-    str_table_help      db '[Arrows] Navigate  [Enter] Select/Reveal  [N] New entry  [D] Delete  [Esc] Exit', 0
+    str_table_help      db '[Arrows] Navigate  [Enter] Reveal/Details  [N] New entry  [D] Delete  [Esc] Exit', 0
     str_masked          db '********', 0
-    str_empty_db        db '(no entries)', 0
+    str_empty_db        db '| (no entries in this database)                                              |', 0x0A, 0
     str_newline         db 0x0A, 0
     str_new_name_p      db 'Name: ', 0
     str_new_pass_p      db 'Password: ', 0
@@ -88,8 +88,11 @@ section .data
     str_entry_added     db 'Entry added.', 0x0A, 0
     str_del_confirm     db 'Delete this entry? (YES/NO): ', 0
     str_entry_deleted   db 'Entry deleted.', 0x0A, 0
-    str_reveal_key_p    db 0x0A, 'Individual encryption key: ', 0
-    str_password_shown  db 0x0A, 'Password: ', 0
+    str_details_hdr     db 0x0A, '--- Entry Details ---', 0x0A, 0
+    str_name_shown      db 'Name:     ', 0
+    str_password_shown  db 'Password: ', 0
+    str_key_shown       db 'Key:      ', 0
+    str_press_any_key   db 0x0A, '[Press any key to return to table]', 0
 
     yes3    db 'YES', 0
 
@@ -152,12 +155,18 @@ table_render:
 
     call database_get_entry_count
     mov rcx, rax
+    test rcx, rcx
+    jnz .has_entries
+    lea rsi, [str_empty_db]
+    call display_put_string
+    jmp .end_rows
+
+.has_entries:
     mov rbx, [table_top_vis]
 
 .row_loop:
     cmp rbx, rcx
     jge .end_rows
-    movzx rax, byte [0 + rbx]
     cmp rbx, [table_row_sel]
     jne .normal_row
     mov dil, COLOR_SELECTED
@@ -200,19 +209,39 @@ table_render:
     mov al, ' '
     call display_put_char
 
+    mov rax, [reveal_row]
+    cmp rax, rbx
+    jne .mask_pass
+    lea rsi, [rcx + ENTRY_PASS_OFFSET]
+    mov rdx, TABLE_PASS_W - 2
+    call _print_padded
+    jmp .after_pass
+
+.mask_pass:
     lea rsi, [str_masked]
     mov rdx, TABLE_PASS_W - 2
     call _print_padded
 
+.after_pass:
     mov al, '|'
     call display_put_char
     mov al, ' '
     call display_put_char
 
+    mov rax, [reveal_row]
+    cmp rax, rbx
+    jne .mask_key
+    lea rsi, [rcx + ENTRY_KEY_OFFSET]
+    mov rdx, TABLE_KEY_W - 2
+    call _print_padded
+    jmp .after_key
+
+.mask_key:
     lea rsi, [str_masked]
     mov rdx, TABLE_KEY_W - 2
     call _print_padded
 
+.after_key:
     mov al, '|'
     call display_put_char
     mov al, 0x0A
@@ -357,43 +386,64 @@ table_handle_input:
 _handle_select:
     push rbx
     push rcx
+    push r12
 
     mov rdi, [table_row_sel]
     call database_get_entry
     test rax, rax
     jz .done
 
-    cmp qword [table_col_sel], COL_PASS
-    jne .not_pass
+    mov r12, rax
 
-    lea rsi, [str_reveal_key_p]
-    call display_put_string
-    lea rsi, [new_entry_buf]
-    mov rdx, 256
-    call keyboard_read_line_masked
+    mov rax, [reveal_row]
+    cmp rax, [table_row_sel]
+    je .hide_row
 
-    lea rsi, [str_password_shown]
+    mov rax, [table_row_sel]
+    mov [reveal_row], rax
+
+    mov dil, COLOR_HEADER
+    call display_set_color
+    lea rsi, [str_details_hdr]
     call display_put_string
-    lea rsi, [rax + ENTRY_PASS_OFFSET]
+    mov dil, COLOR_NORMAL
+    call display_set_color
+
+    lea rsi, [str_name_shown]
+    call display_put_string
+    lea rsi, [r12 + ENTRY_NAME_OFFSET]
     call display_put_string
     mov al, 0x0A
     call display_put_char
 
-    jmp .done
-
-.not_pass:
-    cmp qword [table_col_sel], COL_KEY
-    jne .done
-
-    lea rsi, [str_reveal_key_p]
+    lea rsi, [str_password_shown]
     call display_put_string
-    lea rsi, [new_entry_buf]
-    mov rdx, 256
-    call keyboard_read_line_masked
+    mov dil, COLOR_REVEALED
+    call display_set_color
+    lea rsi, [r12 + ENTRY_PASS_OFFSET]
+    call display_put_string
+    mov dil, COLOR_NORMAL
+    call display_set_color
+    mov al, 0x0A
+    call display_put_char
 
+    lea rsi, [str_key_shown]
+    call display_put_string
+    lea rsi, [r12 + ENTRY_KEY_OFFSET]
+    call display_put_string
+    mov al, 0x0A
+    call display_put_char
+
+    lea rsi, [str_press_any_key]
+    call display_put_string
+    call keyboard_read_char
     jmp .done
+
+.hide_row:
+    mov qword [reveal_row], -1
 
 .done:
+    pop r12
     pop rcx
     pop rbx
     ret

@@ -38,6 +38,7 @@ extern cmd_purge
 extern cmd_update
 extern cmd_install
 extern cmd_exit
+extern cmd_status
 extern display_put_string
 extern display_put_char
 extern display_set_color
@@ -69,6 +70,7 @@ section .data
     cmd_export_all_str      db '/export_database=all', 0
     cmd_purge_str           db '/purge', 0
     cmd_update_str          db '/update', 0
+    cmd_status_str          db '/status', 0
     cmd_install_str         db '/install', 0
     cmd_exit_str            db '/exit', 0
 
@@ -212,9 +214,18 @@ command_parse_and_execute:
     lea rsi, [cmd_update_str]
     call _cmd_match
     test rax, rax
-    jz .try_install
+    jz .try_status
 
     call cmd_update
+    jmp .done
+
+.try_status:
+    lea rsi, [cmd_status_str]
+    call _cmd_match
+    test rax, rax
+    jz .try_install
+
+    call cmd_status
     jmp .done
 
 .try_install:

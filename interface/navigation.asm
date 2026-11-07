@@ -66,6 +66,9 @@ nav_select_from_list:
     mov r14, rdx
     mov r15, 0
 
+    test r14, r14
+    jle .cancel
+
 .render:
     call display_clear
     xor rbx, rbx
@@ -83,9 +86,12 @@ nav_select_from_list:
     push rbx
     imul rax, rbx, 8
     mov rsi, [r12 + rax]
+    test rsi, rsi
+    jz .skip_null
     call display_put_string
     mov al, 0x0A
     call display_put_char
+.skip_null:
     pop rbx
     inc rbx
     jmp .draw_loop
