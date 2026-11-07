@@ -1,6 +1,6 @@
 # PassOS V1.0
 
-PassOS is a standalone, security-focused operating system for password management. It is written entirely in Assembly and runs on x86-64 and ARM64 hardware. There is no network connectivity, no background services, and no unnecessary software. Everything is oriented toward protecting stored credentials.
+PassOS is a standalone, security-focused operating system for password management. It is written entirely in Assembly and currently runs on x86-64 hardware, with an ARM64 port in progress. There is no network connectivity, no background services, and no unnecessary software. Everything is oriented toward protecting stored credentials.
 
 ---
 
@@ -24,6 +24,11 @@ PassOS is a standalone, security-focused operating system for password managemen
 > The ISO boots via GRUB2 + Multiboot2. `build/kernel.elf` is loaded directly
 > by GRUB; there is no El Torito stage-1/stage-2 disk chain any more.
 
+> **ARM64 status:** the shared kernel modules are x86-64 NASM sources, so the
+> ARM64 target currently builds the AArch64 boot entry plus a minimal kernel
+> stub (`kernel/arm/kernel_arm.S`). It is a working cross-build, not a
+> functional PassOS port yet.
+
 ### Build and Create ISO
 
 ```bash
@@ -35,7 +40,7 @@ Or use Make:
 
 ```bash
 make           # builds x86_64 + ISO
-make arm64     # builds ARM64
+make arm64     # builds ARM64 boot stub (full port still in progress)
 make clean     # removes build artifacts
 ```
 

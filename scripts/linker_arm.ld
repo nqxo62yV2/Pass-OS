@@ -11,7 +11,7 @@ SECTIONS
 
     .text : ALIGN(4096)
     {
-        boot/arm/boot_arm.o(.text.boot)
+        KEEP(*(.text.boot))
         *(.text*)
     }
 
@@ -30,6 +30,7 @@ SECTIONS
         bss_start = .;
         *(.bss*)
         *(COMMON)
+        . = ALIGN(16);
         bss_end = .;
     }
 

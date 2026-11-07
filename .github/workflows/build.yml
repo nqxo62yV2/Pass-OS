@@ -66,11 +66,10 @@ jobs:
           retention-days: 30
 
   build-arm64:
-    name: Build ARM64 (best effort)
+    name: Build ARM64 boot stub
     runs-on: ubuntu-latest
-    # The shared kernel modules are currently x86-64 NASM sources, so the
-    # ARM64 port is incomplete. Do not block the x86-64 build/release on it.
-    continue-on-error: true
+    # The shared kernel modules are x86-64 NASM sources, so only the ARM64
+    # boot entry and the architecture-specific kernel stub are built here.
 
     steps:
       - name: Checkout repository
@@ -79,101 +78,16 @@ jobs:
       - name: Install build tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y nasm binutils-aarch64-linux-gnu
+          sudo apt-get install -y binutils-aarch64-linux-gnu
 
-      - name: Create build directories
-        run: mkdir -p build/arm/obj
+      - name: Build ARM64 boot stub
+        run: bash scripts/build_arm.sh
 
-      - name: Assemble ARM64 boot entry
+      - name: Verify ARM64 ELF
         run: |
-          aarch64-linux-gnu-as \
-            -o build/arm/obj/boot_arm.o \
-            boot/arm/boot_arm.asm
-
-      - name: Assemble ARM64 kernel modules
-        run: |
-          for src in \
-            kernel/kernel.asm \
-            kernel/memory.asm \
-            kernel/interrupts.asm \
-            kernel/scheduler.asm \
-            kernel/system.asm \
-            drivers/display/display.asm \
-            drivers/keyboard/keyboard.asm \
-            drivers/storage/storage.asm \
-            drivers/usb/usb.asm \
-            drivers/hardware/hardware.asm \
-            security/key_derivation.asm \
-            security/encryption.asm \
-            security/secure_memory.asm \
-            security/authentication.asm \
-            security/integrity.asm \
-            database/database_storage.asm \
-            database/database.asm \
-            database/database_create.asm \
-            database/database_delete.asm \
-            database/database_search.asm \
-            database/database_export.asm \
-            interface/terminal.asm \
-            interface/command_parser.asm \
-            interface/table.asm \
-            interface/navigation.asm \
-            interface/text_editor.asm \
-            interface/commands.asm \
-            settings/settings.asm \
-            updates/update.asm \
-            installer/installer.asm
-          do
-            base=$(basename "$src" .asm)
-            nasm -f elf64 "$src" -o "build/arm/obj/${base}.o"
-          done
-
-      - name: Link ARM64 kernel
-        run: |
-          aarch64-linux-gnu-ld \
-            -T scripts/linker_arm.ld \
-            -o build/arm/kernel_arm.elf \
-            build/arm/obj/boot_arm.o \
-            build/arm/obj/kernel.o \
-            build/arm/obj/memory.o \
-            build/arm/obj/interrupts.o \
-            build/arm/obj/scheduler.o \
-            build/arm/obj/system.o \
-            build/arm/obj/display.o \
-            build/arm/obj/keyboard.o \
-            build/arm/obj/storage.o \
-            build/arm/obj/usb.o \
-            build/arm/obj/hardware.o \
-            build/arm/obj/key_derivation.o \
-            build/arm/obj/encryption.o \
-            build/arm/obj/secure_memory.o \
-            build/arm/obj/authentication.o \
-            build/arm/obj/integrity.o \
-            build/arm/obj/database_storage.o \
-            build/arm/obj/database.o \
-            build/arm/obj/database_create.o \
-            build/arm/obj/database_delete.o \
-            build/arm/obj/database_search.o \
-            build/arm/obj/database_export.o \
-            build/arm/obj/terminal.o \
-            build/arm/obj/command_parser.o \
-            build/arm/obj/table.o \
-            build/arm/obj/navigation.o \
-            build/arm/obj/text_editor.o \
-            build/arm/obj/commands.o \
-            build/arm/obj/settings.o \
-            build/arm/obj/update.o \
-            build/arm/obj/installer.o
-
-      - name: Extract ARM64 flat binary
-        run: |
-          aarch64-linux-gnu-objcopy \
-            -O binary \
-            build/arm/kernel_arm.elf \
-            build/arm/kernel_arm.bin
-
-      - name: Show ARM64 artifact size
-        run: ls -lh build/arm/kernel_arm.bin
+          aarch64-linux-gnu-readelf -h build/arm/kernel_arm.elf
+          file build/arm/kernel_arm.bin
+          ls -lh build/arm/kernel_arm.elf build/arm/kernel_arm.bin
 
       - name: Upload ARM64 kernel
         uses: actions/upload-artifact@v4
