@@ -99,9 +99,9 @@ aes256_key_expand:
 .simple_xor:
     mov rax, rcx
     sub rax, 1
-    movzx rbx, dword [r13 + rax * 4]
+    mov ebx, dword [r13 + rax * 4]
     sub rax, 7
-    movzx rax, dword [r13 + rax * 4]
+    mov eax, dword [r13 + rax * 4]
     xor rax, rbx
 
 .store:

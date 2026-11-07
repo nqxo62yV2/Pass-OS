@@ -264,7 +264,7 @@ db_storage_get_db_info:
     ret
 
 db_storage_db_count:
-    movzx rax, dword [db_count]
+    mov eax, dword [db_count]
     ret
 
 db_storage_read_entry:
