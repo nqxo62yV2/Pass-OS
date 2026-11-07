@@ -1,4 +1,7 @@
-; PassOS BIOS Stage 2 Bootloader
+; PassOS BIOS Stage 2 Bootloader (LEGACY - not used by the GRUB2 ISO)
+; The shipped ISO boots via GRUB2 + Multiboot2 (boot/bios/boot.asm).
+; This file is retained only for a future raw-disk/USB boot path.
+;
 ; Runs in real mode, enables A20, enters protected mode, then long mode,
 ; loads the kernel, and jumps to it.
 

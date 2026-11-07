@@ -1,6 +1,6 @@
-; PassOS ARM64 (AArch64) Boot Entry
-; Loaded by U-Boot or compatible ARM firmware.
-; Initializes the execution environment and jumps to the ARM kernel entry.
+// PassOS ARM64 (AArch64) Boot Entry
+// Loaded by U-Boot or compatible ARM firmware.
+// Initializes the execution environment and jumps to the ARM kernel entry.
 
 .section ".text.boot"
 .global _start
@@ -75,4 +75,4 @@ stack_top:
 .section ".text"
 .balign 2048
 vector_table:
-    .space 2048
+.space 2048

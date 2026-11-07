@@ -13,9 +13,13 @@ PassOS is a standalone, security-focused operating system for password managemen
 | `nasm` | x86-64 assembler |
 | `ld` (binutils) | Linker |
 | `objcopy` (binutils) | Binary extraction |
-| `xorriso` | ISO image creation |
+| `grub-mkrescue` + `grub-pc-bin` | Bootable ISO creation (GRUB2/Multiboot2) |
+| `xorriso`, `mtools` | ISO filesystem tools used by `grub-mkrescue` |
 | `aarch64-linux-gnu-*` | ARM64 cross toolchain |
 | `qemu-system-x86_64` | Testing (optional) |
+
+> The ISO boots via GRUB2 + Multiboot2. `build/kernel.elf` is loaded directly
+> by GRUB; there is no El Torito stage-1/stage-2 disk chain any more.
 
 ### Build and Create ISO
 
@@ -100,7 +104,7 @@ See `docs/Document.md` for full documentation.
 
 ```
 PassOS/
-├── boot/          BIOS, UEFI, and ARM64 bootloaders
+├── boot/          BIOS (Multiboot2) and ARM64 boot entry
 ├── kernel/        Core kernel: memory, interrupts, scheduler, system init
 ├── drivers/       Display, keyboard, storage, USB, hardware detection
 ├── security/      Key derivation, encryption, secure memory, authentication, integrity

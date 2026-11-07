@@ -19,126 +19,37 @@ jobs:
       - name: Install build tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y nasm binutils xorriso mtools
+          sudo apt-get install -y \
+            nasm binutils xorriso mtools \
+            grub-common grub-pc-bin grub-efi-amd64-bin \
+            qemu-system-x86
 
-      - name: Create build directories
-        run: mkdir -p build/obj build/isoroot/boot/grub
-
-      - name: Assemble bootloader (BIOS Stage 1)
-        run: nasm -f bin boot/bios/boot.asm -o build/boot.bin
-
-      - name: Assemble bootloader (BIOS Stage 2)
-        run: nasm -f bin boot/bios/stage2.asm -o build/stage2.bin
-
-      - name: Assemble kernel
+      - name: Build debug ISO (serial markers enabled)
         run: |
-          nasm -f elf64 kernel/kernel.asm      -o build/obj/kernel.o
-          nasm -f elf64 kernel/memory.asm      -o build/obj/memory.o
-          nasm -f elf64 kernel/interrupts.asm  -o build/obj/interrupts.o
-          nasm -f elf64 kernel/scheduler.asm   -o build/obj/scheduler.o
-          nasm -f elf64 kernel/system.asm      -o build/obj/system.o
+          NASMFLAGS="-DDEBUG_SERIAL" bash scripts/build.sh
+          bash scripts/makeiso.sh
 
-      - name: Assemble drivers
+      - name: Verify kernel ELF / Multiboot2 layout
         run: |
-          nasm -f elf64 drivers/display/display.asm   -o build/obj/display.o
-          nasm -f elf64 drivers/keyboard/keyboard.asm -o build/obj/keyboard.o
-          nasm -f elf64 drivers/storage/storage.asm   -o build/obj/storage.o
-          nasm -f elf64 drivers/usb/usb.asm           -o build/obj/usb.o
-          nasm -f elf64 drivers/hardware/hardware.asm -o build/obj/hardware.o
+          echo "=== ELF header ==="
+          readelf -h build/kernel.elf
+          echo "=== Program headers ==="
+          readelf -l build/kernel.elf
+          echo "=== Multiboot2 check ==="
+          grub-file --is-x86-multiboot2 build/kernel.elf && echo "valid multiboot2 image"
 
-      - name: Assemble security layer
+      - name: Boot smoke test (QEMU)
+        run: bash scripts/test_boot.sh build/passos.iso
+
+      - name: Build release artifacts (serial markers disabled)
         run: |
-          nasm -f elf64 security/key_derivation.asm -o build/obj/key_derivation.o
-          nasm -f elf64 security/encryption.asm     -o build/obj/encryption.o
-          nasm -f elf64 security/secure_memory.asm  -o build/obj/secure_memory.o
-          nasm -f elf64 security/authentication.asm -o build/obj/authentication.o
-          nasm -f elf64 security/integrity.asm      -o build/obj/integrity.o
-
-      - name: Assemble database layer
-        run: |
-          nasm -f elf64 database/database_storage.asm -o build/obj/database_storage.o
-          nasm -f elf64 database/database.asm         -o build/obj/database.o
-          nasm -f elf64 database/database_create.asm  -o build/obj/database_create.o
-          nasm -f elf64 database/database_delete.asm  -o build/obj/database_delete.o
-          nasm -f elf64 database/database_search.asm  -o build/obj/database_search.o
-          nasm -f elf64 database/database_export.asm  -o build/obj/database_export.o
-
-      - name: Assemble interface layer
-        run: |
-          nasm -f elf64 interface/terminal.asm       -o build/obj/terminal.o
-          nasm -f elf64 interface/command_parser.asm -o build/obj/command_parser.o
-          nasm -f elf64 interface/table.asm          -o build/obj/table.o
-          nasm -f elf64 interface/navigation.asm     -o build/obj/navigation.o
-          nasm -f elf64 interface/text_editor.asm    -o build/obj/text_editor.o
-          nasm -f elf64 interface/commands.asm       -o build/obj/commands.o
-          nasm -f elf64 settings/settings.asm        -o build/obj/settings.o
-          nasm -f elf64 updates/update.asm           -o build/obj/update.o
-          nasm -f elf64 installer/installer.asm      -o build/obj/installer.o
-
-      - name: Link kernel ELF
-        run: |
-          ld -T scripts/linker.ld -o build/kernel.elf \
-            build/obj/kernel.o \
-            build/obj/memory.o \
-            build/obj/interrupts.o \
-            build/obj/scheduler.o \
-            build/obj/system.o \
-            build/obj/display.o \
-            build/obj/keyboard.o \
-            build/obj/storage.o \
-            build/obj/usb.o \
-            build/obj/hardware.o \
-            build/obj/key_derivation.o \
-            build/obj/encryption.o \
-            build/obj/secure_memory.o \
-            build/obj/authentication.o \
-            build/obj/integrity.o \
-            build/obj/database_storage.o \
-            build/obj/database.o \
-            build/obj/database_create.o \
-            build/obj/database_delete.o \
-            build/obj/database_search.o \
-            build/obj/database_export.o \
-            build/obj/terminal.o \
-            build/obj/command_parser.o \
-            build/obj/table.o \
-            build/obj/navigation.o \
-            build/obj/text_editor.o \
-            build/obj/commands.o \
-            build/obj/settings.o \
-            build/obj/update.o \
-            build/obj/installer.o
-
-      - name: Extract flat binary
-        run: objcopy -O binary build/kernel.elf build/kernel.bin
-
-      - name: Create ISO image
-        run: |
-          cp build/kernel.bin build/isoroot/boot/kernel.bin
-          cp build/boot.bin   build/isoroot/boot/boot.bin
-          cp build/stage2.bin build/isoroot/boot/stage2.bin
-          cat > build/isoroot/boot/grub/grub.cfg << 'EOF'
-          set timeout=3
-          set default=0
-          menuentry "PassOS V1.0" {
-              multiboot2 /boot/kernel.bin
-              boot
-          }
-          EOF
-          xorriso -as mkisofs \
-            -b boot/boot.bin \
-            -no-emul-boot \
-            -boot-load-size 4 \
-            -boot-info-table \
-            -iso-level 3 \
-            -r -J \
-            -o build/passos.iso \
-            build/isoroot
+          bash scripts/build.sh
+          bash scripts/makeiso.sh
 
       - name: Show build artifact sizes
         run: |
           echo "=== Build Artifacts ==="
-          ls -lh build/boot.bin build/kernel.elf build/kernel.bin build/passos.iso
+          ls -lh build/kernel.elf build/kernel.bin build/passos.iso
 
       - name: Upload kernel binary
         uses: actions/upload-artifact@v4
@@ -155,8 +66,11 @@ jobs:
           retention-days: 30
 
   build-arm64:
-    name: Build ARM64
+    name: Build ARM64 (best effort)
     runs-on: ubuntu-latest
+    # The shared kernel modules are currently x86-64 NASM sources, so the
+    # ARM64 port is incomplete. Do not block the x86-64 build/release on it.
+    continue-on-error: true
 
     steps:
       - name: Checkout repository
@@ -271,7 +185,7 @@ jobs:
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [ build-x86_64, build-arm64 ]
+    needs: [ build-x86_64 ]
     # Only run on a version tag push (e.g. v1.0, v1.1)
     if: startsWith(github.ref, 'refs/tags/v')
 
@@ -288,12 +202,6 @@ jobs:
           name: passos-x86_64-kernel
           path: release/
 
-      - name: Download ARM64 kernel
-        uses: actions/download-artifact@v4
-        with:
-          name: passos-arm64-kernel
-          path: release/
-
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
@@ -306,7 +214,6 @@ jobs:
             |---|---|
             | `passos.iso` | Bootable ISO for x86-64 (BIOS + UEFI) |
             | `kernel.bin` | Flat kernel binary (x86-64) |
-            | `kernel_arm.bin` | Flat kernel binary (ARM64 / Raspberry Pi) |
 
             ### Flashing to USB
             **Linux:** `sudo dd if=passos.iso of=/dev/sdX bs=4M status=progress && sync`
@@ -315,4 +222,3 @@ jobs:
           files: |
             release/passos.iso
             release/kernel.bin
-            release/kernel_arm.bin

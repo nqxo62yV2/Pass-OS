@@ -200,6 +200,8 @@ authentication_first_run_setup:
     call keyboard_read_line
 
     lea rdi, [confirm_buffer]
+    call _upper_first3
+    lea rdi, [confirm_buffer]
     lea rsi, [yes_str]
     mov rdx, 3
     call secure_compare
@@ -385,6 +387,28 @@ _memcopy:
     rep movsb
     pop rdi
     pop rsi
+    pop rcx
+    ret
+
+; Convert the first three bytes of the buffer at RDI to uppercase.
+; Used so the first-run confirmation accepts "yes", "Yes" and "YES".
+_upper_first3:
+    push rcx
+    push rdi
+    mov rcx, 3
+.loop:
+    mov al, [rdi]
+    cmp al, 'a'
+    jb .next
+    cmp al, 'z'
+    ja .next
+    sub al, 32
+    mov [rdi], al
+.next:
+    inc rdi
+    dec rcx
+    jnz .loop
+    pop rdi
     pop rcx
     ret
 

@@ -261,24 +261,29 @@ buffer_pop:
     ret
 
 keyboard_read_char:
+    push rbx
 .wait:
     movzx rax, byte [buf_tail]
     movzx rbx, byte [buf_head]
     cmp al, bl
     je .wait
     call buffer_pop
+    pop rbx
     ret
 
 keyboard_peek:
+    push rbx
     movzx rax, byte [buf_tail]
     movzx rbx, byte [buf_head]
     cmp al, bl
     je .empty
     movzx rax, byte [buf_tail]
     movzx rax, byte [kbd_buffer + rax]
+    pop rbx
     ret
 .empty:
     xor rax, rax
+    pop rbx
     ret
 
 keyboard_read_line:
@@ -327,9 +332,9 @@ keyboard_read_line:
 
 .done:
     mov byte [rdi + rcx], 0
-    mov rax, rcx
-    mov al, 0x0A
+    mov rax, rcx          ; return the line length
     push rax
+    mov al, 0x0A
     call display_put_char
     pop rax
 
@@ -384,9 +389,9 @@ keyboard_read_line_masked:
 
 .done:
     mov byte [rdi + rcx], 0
-    mov rax, rcx
-    mov al, 0x0A
+    mov rax, rcx          ; return the line length
     push rax
+    mov al, 0x0A
     call display_put_char
     pop rax
 
