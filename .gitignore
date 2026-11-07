@@ -1,0 +1,8 @@
+build/obj/
+build/arm/
+build/*.elf
+build/*.bin
+build/*.iso
+build/isoroot/
+*.o
+*.elf
