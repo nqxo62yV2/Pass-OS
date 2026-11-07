@@ -388,4 +388,44 @@ _memcopy:
     pop rcx
     ret
 
+; authentication_verify_token(rdi = null-terminated token string)
+; Returns 0 if the token is correct, 1 if it is wrong.
+; Used by commands that require re-authentication (delete, export, purge, install, update).
+authentication_verify_token:
+    push rbx
+    push r12
+
+    mov r12, rdi
+
+    ; derive key from supplied token
+    call _strlen          ; rax = token length
+    mov rcx, rax
+
+    lea rdi, [derived_key]
+    mov rsi, r12
+    mov rdx, rcx
+    lea rcx, [stored_salt]
+    mov r8, SALT_LEN
+    call argon2id_derive
+
+    ; constant-time compare against stored hash
+    lea rdi, [derived_key]
+    lea rsi, [stored_hash]
+    mov rdx, DERIVED_KEY_LEN
+    call secure_compare   ; returns 1 if equal, 0 if different
+
+    ; zero the derived key immediately
+    push rax
+    lea rdi, [derived_key]
+    mov rsi, DERIVED_KEY_LEN
+    call secure_zero
+    pop rax
+
+    ; invert: secure_compare returns 1=match, callers expect 0=success
+    xor rax, 1
+
+    pop r12
+    pop rbx
+    ret
+
 yes_str db 'YES', 0
