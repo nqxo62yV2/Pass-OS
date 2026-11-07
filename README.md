@@ -6,6 +6,9 @@ PassOS is a standalone, security-focused operating system for password managemen
 
 ## Quick Start
 
+> **Prebuilt ISO:** [`artifacts/passos.iso`](artifacts/passos.iso) — verified
+> booting in VirtualBox 7.2.20 (BIOS, GRUB2/Multiboot2).
+
 ### Build Requirements
 
 | Tool | Purpose |
