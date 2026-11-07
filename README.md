@@ -123,6 +123,8 @@ PassOS/
 ├── installer/     Drive installer
 ├── docs/          Document.md — full documentation
 ├── scripts/       Build scripts, linker scripts, Makefile
+├── artifacts/     Prebuilt, verified ISO images
+├── CHANGELOG.md   Release history
 └── build/         Build output (generated)
 ```
 

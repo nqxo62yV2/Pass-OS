@@ -57,7 +57,7 @@ section .data
     str_splash_ver      db 'Version 1.0', 0
     str_splash_bar      db '[##############################]', 0
     str_splash_start    db 'Starting PassOS...', 0
-    str_splash_skip     db 'Press any key to continue', 0
+    str_splash_skip     db 'Press Enter to continue', 0
 
 section .text
 
@@ -475,7 +475,7 @@ splash_screen_display:
     call display_put_string_at
 
 %ifndef DEBUG_SERIAL
-    ; Wait for a key press, but continue on a timeout if nobody is there.
+    ; Wait for Enter, but continue on a timeout if nobody is there.
     mov ecx, 0x40000000
 .wait:
     push rcx
@@ -487,7 +487,12 @@ splash_screen_display:
     jnz .wait
     jmp .done
 .key:
-    call keyboard_read_char
+    call keyboard_read_char       ; consume the key
+    cmp al, 0x0A
+    je .done
+    cmp al, 0x0D
+    je .done
+    jmp .wait
 %endif
 
 .done:
