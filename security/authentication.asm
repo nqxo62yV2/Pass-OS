@@ -15,6 +15,7 @@ extern display_clear
 extern display_set_color
 extern keyboard_read_line_masked
 extern keyboard_read_line
+extern keyboard_read_char
 extern argon2id_derive
 extern secure_zero
 extern secure_compare
@@ -49,6 +50,7 @@ section .data
     str_user_prompt     db 'Username: root', 0x0A, 0
     str_token_prompt    db 'Master token: ', 0
     str_auth_failed     db 0x0A, 'Authentication failed. Try again.', 0x0A, 0
+    str_press_key       db 'Press any key to retry...', 0
     str_auth_ok         db 0x0A, 'Authentication successful.', 0x0A, 0
 
     str_setup_title     db 'PassOS First-Run Security Setup', 0x0A, 0x0A, 0
@@ -107,6 +109,13 @@ authentication_start:
     call display_put_string
     mov dil, COLOR_NORMAL
     call display_set_color
+    lea rsi, [str_press_key]
+    call display_put_string
+    ; Wait for any key press so the user can read the error message
+    ; before the screen is cleared for the next attempt.
+.wait_key:
+    call keyboard_read_char
+    ; Consume the key and retry
     jmp .login_loop
 
 .first_run:
@@ -246,11 +255,17 @@ authentication_first_run_setup:
 .too_short:
     lea rsi, [str_token_short]
     call display_put_string
+    lea rsi, [str_press_key]
+    call display_put_string
+    call keyboard_read_char
     jmp .token_entry
 
 .mismatch:
     lea rsi, [str_token_mismatch]
     call display_put_string
+    lea rsi, [str_press_key]
+    call display_put_string
+    call keyboard_read_char
     jmp .token_entry
 
 .aborted:
