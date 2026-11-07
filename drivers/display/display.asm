@@ -18,6 +18,7 @@ global display_get_cursor_row
 global display_scroll_up
 global display_draw_line
 global boot_screen_display
+global splash_screen_display
 
 VGA_BASE        equ 0xB8000
 VGA_COLS        equ 80
@@ -46,6 +47,17 @@ section .data
     str_terminal        db 'Initializing terminal .......... OK', 0
     str_ready1          db 'System initialization complete.', 0
     str_ready2          db 'PassOS is ready.', 0
+
+    str_splash_logo1    db '  ____   _    ____ ____   ___  ____', 0
+    str_splash_logo2    db ' |  _ \ / \  / ___/ ___| / _ \/ ___|', 0
+    str_splash_logo3    db ' | |_) / _ \ \___ \___ \| | | \___ \', 0
+    str_splash_logo4    db ' |  __/ ___ \ ___) |__) | |_| |___) |', 0
+    str_splash_logo5    db ' |_| /_/   \_\____/____/ \___/|____|', 0
+    str_splash_sub      db 'Password Vault Operating System', 0
+    str_splash_ver      db 'Version 1.0', 0
+    str_splash_bar      db '[##############################]', 0
+    str_splash_start    db 'Starting PassOS...', 0
+    str_splash_skip     db 'Press any key to continue', 0
 
 section .text
 
@@ -84,6 +96,8 @@ display_put_char:
     je .newline
     cmp al, 0x0D
     je .carriage_return
+    cmp al, 0x08
+    je .backspace
 
     movzx rbx, byte [cursor_row]
     imul rbx, VGA_COLS
@@ -114,6 +128,23 @@ display_put_char:
 
 .carriage_return:
     mov byte [cursor_col], 0
+    jmp .done
+
+; Backspace: move the cursor left without writing a glyph. The caller is
+; responsible for overwriting the character (usually with a space).
+.backspace:
+    movzx rax, byte [cursor_col]
+    test rax, rax
+    jz .bs_prev_line
+    dec byte [cursor_col]
+    jmp .done
+
+.bs_prev_line:
+    movzx rax, byte [cursor_row]
+    test rax, rax
+    jz .done
+    dec byte [cursor_row]
+    mov byte [cursor_col], VGA_COLS - 1
 
 .done:
     call _update_hw_cursor
@@ -375,6 +406,103 @@ boot_screen_display:
     pop rbx
     ret
 
+; ── Boot splash ─────────────────────────────────────────────────────────────
+; Shown once before the initialization screen. In debug builds (CI smoke test)
+; it does not wait for input; release builds wait for a key or a short timeout.
+splash_screen_display:
+    push rax
+    push rcx
+    push rdx
+    push rsi
+
+    call display_clear
+
+    mov byte [current_color], 0x0B
+
+    lea rdi, [str_splash_logo1]
+    mov dl, 5
+    mov cl, 18
+    call display_put_string_at
+
+    lea rdi, [str_splash_logo2]
+    mov dl, 6
+    mov cl, 18
+    call display_put_string_at
+
+    lea rdi, [str_splash_logo3]
+    mov dl, 7
+    mov cl, 18
+    call display_put_string_at
+
+    lea rdi, [str_splash_logo4]
+    mov dl, 8
+    mov cl, 18
+    call display_put_string_at
+
+    lea rdi, [str_splash_logo5]
+    mov dl, 9
+    mov cl, 18
+    call display_put_string_at
+
+    mov byte [current_color], 0x0F
+    lea rdi, [str_splash_sub]
+    mov dl, 11
+    mov cl, 22
+    call display_put_string_at
+
+    mov byte [current_color], 0x07
+    lea rdi, [str_splash_ver]
+    mov dl, 12
+    mov cl, 34
+    call display_put_string_at
+
+    mov byte [current_color], 0x0A
+    lea rdi, [str_splash_bar]
+    mov dl, 14
+    mov cl, 24
+    call display_put_string_at
+
+    mov byte [current_color], 0x0E
+    lea rdi, [str_splash_start]
+    mov dl, 16
+    mov cl, 31
+    call display_put_string_at
+
+    mov byte [current_color], 0x08
+    lea rdi, [str_splash_skip]
+    mov dl, 20
+    mov cl, 28
+    call display_put_string_at
+
+%ifndef DEBUG_SERIAL
+    ; Wait for a key press, but continue on a timeout if nobody is there.
+    mov ecx, 0x40000000
+.wait:
+    push rcx
+    call keyboard_peek
+    pop rcx
+    test rax, rax
+    jnz .key
+    dec ecx
+    jnz .wait
+    jmp .done
+.key:
+    call keyboard_read_char
+%endif
+
+.done:
+    mov byte [current_color], DEFAULT_COLOR
+
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rax
+    ret
+
 section .bss
     hex_buf     resb 20
     dec_buf     resb 22
+
+extern display_put_char
+extern keyboard_peek
+extern keyboard_read_char

@@ -11,6 +11,7 @@ extern scheduler_init
 extern system_init
 extern terminal_init
 extern authentication_start
+extern splash_screen_display
 extern boot_screen_display
 extern terminal_run
 
@@ -30,6 +31,7 @@ kernel_main:
     call scheduler_init
     call system_init
     call terminal_init
+    call splash_screen_display
     call boot_screen_display
 
 %ifdef DEBUG_SERIAL

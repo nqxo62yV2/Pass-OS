@@ -30,6 +30,7 @@ KEY_ENTER           equ 0x1C
 KEY_BACKSPACE       equ 0x0E
 KEY_ESCAPE          equ 0x01
 KEY_TAB             equ 0x0F
+KEY_DELETE          equ 0x53
 KEY_LSHIFT          equ 0x2A
 KEY_RSHIFT          equ 0x36
 KEY_LCTRL           equ 0x1D
@@ -71,6 +72,7 @@ section .data
     SPECIAL_KEY_RIGHT   equ 0x83
     SPECIAL_KEY_ESC     equ 0x84
     SPECIAL_KEY_TAB     equ 0x85
+    SPECIAL_KEY_DELETE  equ 0x86
 
 section .text
 
@@ -88,12 +90,25 @@ keyboard_scancode_handler:
 
     movzx rbx, al
 
+    ; 0xE0 also has the release bit set, so it must be checked first.
+    cmp rbx, EXTENDED_PREFIX
+    je .extended_set
+
     test rbx, KEY_RELEASE_FLAG
     jnz .key_release
 
-    cmp rbx, EXTENDED_PREFIX
-    je .extended_skip
+    ; Extended Delete (E0 53) is not in the ASCII layout table.
+    cmp rbx, KEY_DELETE
+    jne .normal_key
+    test byte [modifier_flags], FLAG_EXTENDED
+    jz .normal_key
+    and byte [modifier_flags], ~FLAG_EXTENDED
+    mov al, SPECIAL_KEY_DELETE
+    call buffer_push
+    jmp .done
 
+.normal_key:
+    and byte [modifier_flags], ~FLAG_EXTENDED
     call handle_modifier_press
     call scancode_to_char
     test al, al
@@ -107,12 +122,14 @@ keyboard_scancode_handler:
 
 .key_release:
     and rbx, ~KEY_RELEASE_FLAG
+    and byte [modifier_flags], ~FLAG_EXTENDED
     call handle_modifier_release
     pop rbx
     pop rax
     ret
 
-.extended_skip:
+.extended_set:
+    or byte [modifier_flags], FLAG_EXTENDED
     pop rbx
     pop rax
     ret
@@ -302,6 +319,10 @@ keyboard_read_line:
     je .done
     cmp al, 0x08
     je .backspace
+    cmp al, SPECIAL_KEY_DELETE
+    je .backspace
+    cmp al, 0x80
+    jae .loop              ; ignore other special keys (arrows, Esc, Tab)
 
     cmp rcx, rdx
     jge .loop
@@ -359,6 +380,10 @@ keyboard_read_line_masked:
     je .done
     cmp al, 0x08
     je .backspace
+    cmp al, SPECIAL_KEY_DELETE
+    je .backspace
+    cmp al, 0x80
+    jae .loop              ; ignore other special keys (arrows, Esc, Tab)
 
     cmp rcx, rdx
     jge .loop
